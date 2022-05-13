@@ -4,6 +4,16 @@
 
 #define N 400532
 #define QUANTIZE_SAMPLE 80107
+#define LINEAR_SAMPLE 400535
+
+#define HN 407078
+#define H_QUANTIZE_SAMPLE 81416
+#define H_LINEAR_SAMPLE 407080
+
+// Wav file has 16 bit sample inside of it so.
+// Maximum quantized number will be 2^15 (Because first bit will be sign bit)  
+
+int16_t const maxNumber = pow(2, 15);  
 
 void createAudio();
 void readAudioFile();
@@ -92,10 +102,10 @@ int16_t findSlope(int16_t first, int16_t fifth){
 
 void changeAudioFile(){
 
-	int16_t quantizeBuffer[QUANTIZE_SAMPLE] = {0};
-	int16_t meanQuantizeBuffer[QUANTIZE_SAMPLE] = {0};
-	int16_t biggestQuantizeBuffer[QUANTIZE_SAMPLE] = {0};
-	int16_t linearQuantizeBuffer[400535] = {0};
+	int16_t quantizeBuffer[H_QUANTIZE_SAMPLE] = {0};
+	int16_t meanQuantizeBuffer[H_QUANTIZE_SAMPLE] = {0};
+	int16_t biggestQuantizeBuffer[H_QUANTIZE_SAMPLE] = {0};
+	int16_t linearQuantizeBuffer[H_LINEAR_SAMPLE] = {0};
 
 
 	// Launch two instances of FFmpeg, on-e to read the original WAV
@@ -107,11 +117,11 @@ void changeAudioFile(){
     FILE *biggestPipeout;
     FILE *linearPipeout;
 
-    pipein  = popen("ffmpeg -i monoTen.wav -f s16le -ac 1 -", "r");
-    pipeout = popen("ffmpeg -y -f s16le -ar 40532 -ac 1 -i - out.wav", "w");
-    meanPipeout = popen("ffmpeg -y -f s16le -ar 40532 -ac 1 -i - meanOut.wav", "w");
-    biggestPipeout = popen("ffmpeg -y -f s16le -ar 40532 -ac 1 -i - bigOut.wav", "w");
-	linearPipeout = popen("ffmpeg -y -f s16le -ar 40532 -ac 1 -i - linearOut.wav", "w");
+    pipein  = popen("ffmpeg -i humanSounds/human.wav -f s16le -ac 1 -", "r");
+    pipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanOut.wav", "w");
+    meanPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanMeanOut.wav", "w");
+    biggestPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanBigOut.wav", "w");
+	linearPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanLinearOut.wav", "w");
     // Read, modify and write one sample at a time
     int16_t sample;
     int count, k, n=0;
@@ -122,7 +132,7 @@ void changeAudioFile(){
         count = fread(&sample, 2, 1, pipein); // read one 2-byte sample
         if (count != 1) break;
         
-        //printf("&d", sizeof(sample));
+        //printf("\n%d", n);
         
         if( n%5 == 0){
         	first = sample;
@@ -136,43 +146,45 @@ void changeAudioFile(){
         	fifth = sample;
         	k = (n-4)/5;
 
+        	// quantize number will be 4th sample always for this situation.
         	quantizeBuffer[k] = sample;
+
+        	// quantize number will be mean of 5 signal always for this situation. ( (x0 + x1 + x2 + x3 + x4 )/5)
 			meanQuantizeBuffer[k] = findMean(first, second, third, fourth, fifth);
 
+			// quantize number will be the biggest number in 5 signal level. biggest number >= x0 && x1 && x2 && x3 && x4
         	biggestQuantizeBuffer[k] = findBiggest(first, second, third, fourth, fifth);
-
         }
-
         n++;
-
     }
+
 
     printf("\nquantizeBuffer: ");
 
    
-	for(int i=0; i<QUANTIZE_SAMPLE; i++){
+	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
 		for(int j=0; j<5; j++){
 			fwrite(quantizeBuffer + i, 2, 1, pipeout);
 		}
 	}  
 
 	printf("\nMeanQuantizeBuffer: ");
-	for(int i=0; i<QUANTIZE_SAMPLE; i++){
+	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
 		for(int j=0; j<5; j++){
         	fwrite(meanQuantizeBuffer + i, 2, 1, meanPipeout);
 		}
 	}
 
 	printf("\nBiggestQuantizeBuffer: ");
-	for(int i=0; i<QUANTIZE_SAMPLE; i++){
+	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
 		for(int j=0; j<5; j++){
         	fwrite(biggestQuantizeBuffer + i, 2, 1, biggestPipeout);
 		}
 	}
 
 	printf("\nLinearQuantizeBuffer: ");
-	for(int i=0; i<QUANTIZE_SAMPLE; i++){
-		if(i != 0 ){
+	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
+		if(i != 0 ){ 
 			slope = findSlope(quantizeBuffer[i-1], quantizeBuffer[i]);
 			for(int j=0; j<5; j++){
 				linearQuantizeBuffer[i + j] = quantizeBuffer[i-1] + (slope * j);
