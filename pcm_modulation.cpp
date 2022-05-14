@@ -10,6 +10,10 @@
 #define H_QUANTIZE_SAMPLE 80282
 #define H_LINEAR_SAMPLE 401410
 
+// FFMPEG --> https://github.com/FFmpeg/FFmpeg
+// Useful links --> https://batchloaf.wordpress.com/2017/02/10/a-simple-way-to-read-and-write-audio-and-video-files-in-c-using-ffmpeg/
+
+
 // Wav file has 16 bit sample inside of it so.
 // Maximum quantized number will be 2^15 (Because first bit will be sign bit)  
 
