@@ -6,18 +6,26 @@
 #define QUANTIZE_SAMPLE 80107
 #define LINEAR_SAMPLE 400535
 
-#define HN 407078
-#define H_QUANTIZE_SAMPLE 81416
-#define H_LINEAR_SAMPLE 407080
+#define HN 401407
+#define H_QUANTIZE_SAMPLE 80282
+#define H_LINEAR_SAMPLE 401410
 
 // Wav file has 16 bit sample inside of it so.
 // Maximum quantized number will be 2^15 (Because first bit will be sign bit)  
 
-int16_t const maxNumber = pow(2, 15);  
+int16_t const maxNumber = pow(2, 15);
+
+float const constant = pow(2, -7); 
+
+
 
 void createAudio();
 void readAudioFile();
 void changeAudioFile();
+
+
+float pcmModulation(float number);
+int16_t decoding(float number);
 
 int main()
 {
@@ -105,30 +113,48 @@ void changeAudioFile(){
 	int16_t quantizeBuffer[H_QUANTIZE_SAMPLE] = {0};
 	int16_t meanQuantizeBuffer[H_QUANTIZE_SAMPLE] = {0};
 	int16_t biggestQuantizeBuffer[H_QUANTIZE_SAMPLE] = {0};
-	int16_t linearQuantizeBuffer[H_LINEAR_SAMPLE] = {0};
 
+	float pcmBuffer[H_QUANTIZE_SAMPLE] = {0};
+	float meanPcmBuffer[H_QUANTIZE_SAMPLE] = {0};
+	float biggestPcmBuffer[H_QUANTIZE_SAMPLE] = {0};
+
+	int16_t encodedBuffer[H_QUANTIZE_SAMPLE] = {0};
+	int16_t meanEncodedBuffer[H_QUANTIZE_SAMPLE] = {0};
+	int16_t biggestEncodedBuffer[H_QUANTIZE_SAMPLE] = {0};
+	int16_t linearEncodedBuffer[H_LINEAR_SAMPLE] = {0};
 
 	// Launch two instances of FFmpeg, on-e to read the original WAV
     // file and another to write the modified WAV file. In each case,
     // data passes between this program and FFmpeg through a pipe.
     FILE *pipein;
+
     FILE *pipeout;
     FILE *meanPipeout;
     FILE *biggestPipeout;
+
+    FILE *encPipeout;
+    FILE *encMeanPipeout;
+    FILE *encBiggestPipeout;
+
     FILE *linearPipeout;
+
 
     pipein  = popen("ffmpeg -i humanSounds/human.wav -f s16le -ac 1 -", "r");
     pipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanOut.wav", "w");
     meanPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanMeanOut.wav", "w");
     biggestPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanBigOut.wav", "w");
-	linearPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanLinearOut.wav", "w");
+    
+    encPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanOut.wav", "w");
+    encMeanPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanMeanOut.wav", "w");
+    encBiggestPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanBigOut.wav", "w");
+	linearPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanLinearOut.wav", "w");
+
     // Read, modify and write one sample at a time
     int16_t sample;
     int count, k, n=0;
 
     int16_t first, second, third, fourth, fifth, slope = 0;
-    while(1)
-    {
+    while(1){
         count = fread(&sample, 2, 1, pipein); // read one 2-byte sample
         if (count != 1) break;
         
@@ -146,8 +172,8 @@ void changeAudioFile(){
         	fifth = sample;
         	k = (n-4)/5;
 
-        	// quantize number will be 4th sample always for this situation.
-        	quantizeBuffer[k] = sample;
+			// quantize number will be first sample always for this situation.
+        	quantizeBuffer[k] = first;
 
         	// quantize number will be mean of 5 signal always for this situation. ( (x0 + x1 + x2 + x3 + x4 )/5)
 			meanQuantizeBuffer[k] = findMean(first, second, third, fourth, fifth);
@@ -158,37 +184,47 @@ void changeAudioFile(){
         n++;
     }
 
+    
+    // Pulse Code Modulation
+    for(int i = 0; i<H_QUANTIZE_SAMPLE; i++){
+    	//It will be between -1V to 1V
+    	pcmBuffer[i] = pcmModulation((float)quantizeBuffer[i] / maxNumber);
+    	meanPcmBuffer[i] = pcmModulation((float)meanQuantizeBuffer[i] / maxNumber);
+    	biggestPcmBuffer[i] = pcmModulation((float)biggestQuantizeBuffer[i] / maxNumber);
+    }
 
-    printf("\nquantizeBuffer: ");
+    // Encoding
 
+    for(int i = 0; i<H_QUANTIZE_SAMPLE; i++){
+    	encodedBuffer[i] = decoding(pcmBuffer[i]);
+    	meanEncodedBuffer[i] = decoding(meanPcmBuffer[i]);
+    	biggestEncodedBuffer[i] = decoding(biggestPcmBuffer[i]);
+    }
    
 	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
+		printf("%d", encodedBuffer[i]);
 		for(int j=0; j<5; j++){
+			//quantized buffer write
 			fwrite(quantizeBuffer + i, 2, 1, pipeout);
+			fwrite(meanQuantizeBuffer + i, 2, 1, meanPipeout);
+			fwrite(biggestQuantizeBuffer + i, 2, 1, biggestPipeout);
+
+			//encoded buffer write
+			fwrite(encodedBuffer + i, 2, 1, encPipeout);
+			fwrite(meanEncodedBuffer + i, 2, 1, encMeanPipeout);
+			fwrite(biggestEncodedBuffer + i, 2, 1, encBiggestPipeout);
+
 		}
 	}  
 
-	printf("\nMeanQuantizeBuffer: ");
-	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
-		for(int j=0; j<5; j++){
-        	fwrite(meanQuantizeBuffer + i, 2, 1, meanPipeout);
-		}
-	}
-
-	printf("\nBiggestQuantizeBuffer: ");
-	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
-		for(int j=0; j<5; j++){
-        	fwrite(biggestQuantizeBuffer + i, 2, 1, biggestPipeout);
-		}
-	}
 
 	printf("\nLinearQuantizeBuffer: ");
 	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
 		if(i != 0 ){ 
-			slope = findSlope(quantizeBuffer[i-1], quantizeBuffer[i]);
+			slope = findSlope(encodedBuffer[i-1], encodedBuffer[i]);
 			for(int j=0; j<5; j++){
-				linearQuantizeBuffer[i + j] = quantizeBuffer[i-1] + (slope * j);
-	        	fwrite(linearQuantizeBuffer + i + j, 2, 1, linearPipeout);
+				linearEncodedBuffer[i + j] = encodedBuffer[i-1] + (slope * j);
+	        	fwrite(linearEncodedBuffer + i + j, 2, 1, linearPipeout);
 			}
 		}
 	}  
@@ -196,9 +232,31 @@ void changeAudioFile(){
 	// Cubic interpolation is the better solution for this -> https://en.wikipedia.org/wiki/Bicubic_interpolation
 
     // Close input and output pipes
-    pclose(pipein);    
+    pclose(pipein); 
+
     pclose(pipeout);
     pclose(meanPipeout);
     pclose(biggestPipeout);
+
+	pclose(encPipeout);
+    pclose(encMeanPipeout);
+    pclose(encBiggestPipeout);
+
 	pclose(linearPipeout);
+}
+
+
+int16_t decoding(float number){
+	return round(number * maxNumber);
+}
+
+float pcmModulation(float number){
+	float bias = 1.0;
+	number = number + bias;
+	for(int16_t i = 0; i< pow(2,8); i++){
+		if(number< i* constant){
+			return (((i*constant) - (constant / 2)) - bias);
+		}
+	}
+	return (1 - (constant / 2));
 }
