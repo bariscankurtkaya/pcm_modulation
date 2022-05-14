@@ -23,17 +23,18 @@ float const constant = pow(2, -7);
 
 
 
-void createAudio();
+void createCarrierSignal();
 void readAudioFile();
 void changeAudioFile();
 
+void createCsvFile(int16_t* voiceArray);
 
 float pcmModulation(float number);
 int16_t decoding(float number);
 
 int main()
 {
-	//createAudio();
+	//createCarrierSignal();
     //readAudioFile();
     changeAudioFile();
     return 0;
@@ -59,19 +60,19 @@ void readAudioFile(){
     fclose(csvfile);
 }
 
-void createAudio(){
+void createCarrierSignal(){
 	// Create audio buffer
-    int16_t buf[N] = {0}; // buffer
+    int16_t buf[HN] = {0}; // buffer
     int n;                // buffer index
-    double Fs = 44100.0;  // sampling frequency
+    double Fs = 40000;  // sampling frequency
      
     // Generate 1 second of audio data - it's just a 1 kHz sine wave
-    for (n=0 ; n<N ; ++n) buf[n] = 16383.0 * sin(n*1000.0*2.0*M_PI/Fs);
+    for (n=0 ; n<HN ; ++n) buf[n] = 16383.0 * sin(n*1000.0*2.0*M_PI/Fs);
      
     // Pipe the audio data to ffmpeg, which writes it to a wav file
     FILE *pipeout;
-    pipeout = popen("ffmpeg -y -f s16le -ar 44100 -ac 1 -i - beep.wav", "w");
-    fwrite(buf, 2, N, pipeout);
+    pipeout = popen("ffmpeg -y -f s16le -ar 40000 -ac 1 -i - carrier.wav", "w");
+    fwrite(buf, 2, HN, pipeout);
     pclose(pipeout);
 }
 
@@ -141,6 +142,7 @@ void changeAudioFile(){
     FILE *linearPipeout;
 
 
+    // Analog to Digital Converter
     pipein  = popen("ffmpeg -i humanSounds/human.wav -f s16le -ac 1 -", "r");
 
     pipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanOut.wav", "w");
@@ -189,14 +191,18 @@ void changeAudioFile(){
         n++;
     }
 
-    
+	//createCsvFile(quantizeBuffer);
+
     // Pulse Code Modulation
     for(int i = 0; i<H_QUANTIZE_SAMPLE; i++){
+
     	//It will be between -1V to 1V
     	pcmBuffer[i] = pcmModulation((float)quantizeBuffer[i] / maxNumber);
     	meanPcmBuffer[i] = pcmModulation((float)meanQuantizeBuffer[i] / maxNumber);
     	biggestPcmBuffer[i] = pcmModulation((float)biggestQuantizeBuffer[i] / maxNumber);
     }
+
+	//createCsvFile(pcmBuffer);
 
     // Encoding
 
@@ -222,6 +228,8 @@ void changeAudioFile(){
 		}
 	}  
 
+	//createCsvFile(encodedBuffer);
+
 
 	printf("\nLinearQuantizeBuffer: ");
 	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
@@ -234,6 +242,8 @@ void changeAudioFile(){
 		}
 	}  
 	
+	//createCsvFile(linearEncodedBuffer);
+
 	// Cubic interpolation is the better solution for this -> https://en.wikipedia.org/wiki/Bicubic_interpolation
 
     // Close input and output pipes
@@ -250,6 +260,12 @@ void changeAudioFile(){
 	pclose(linearPipeout);
 }
 
+void createCsvFile(int16_t voiceArray[HN]){
+	FILE *csvfile;
+    csvfile = fopen("Encodedsamples.csv", "w");
+    for (int n=0 ; n<HN ; ++n) fprintf(csvfile, "%d\n", voiceArray[n]);
+    fclose(csvfile);
+}
 
 int16_t decoding(float number){
 	return round(number * maxNumber);
