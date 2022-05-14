@@ -57,8 +57,6 @@ void readAudioFile(){
     csvfile = fopen("samples.csv", "w");
     for (n=0 ; n<N ; ++n) fprintf(csvfile, "%d\n", buf[n]);
     fclose(csvfile);
-	
-	
 }
 
 void createAudio(){
@@ -144,6 +142,7 @@ void changeAudioFile(){
 
 
     pipein  = popen("ffmpeg -i humanSounds/human.wav -f s16le -ac 1 -", "r");
+
     pipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanOut.wav", "w");
     meanPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanMeanOut.wav", "w");
     biggestPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/humanBigOut.wav", "w");
@@ -151,7 +150,9 @@ void changeAudioFile(){
     encPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanOut.wav", "w");
     encMeanPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanMeanOut.wav", "w");
     encBiggestPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanBigOut.wav", "w");
+
 	linearPipeout = popen("ffmpeg -y -f s16le -ar 40707 -ac 1 -i - humanSounds/enc_humanLinearOut.wav", "w");
+
 
     // Read, modify and write one sample at a time
     int16_t sample;
@@ -206,7 +207,7 @@ void changeAudioFile(){
     }
    
 	for(int i=0; i<H_QUANTIZE_SAMPLE; i++){
-		printf("%d", encodedBuffer[i]);
+		//printf("%d", encodedBuffer[i]);
 		for(int j=0; j<5; j++){
 			//quantized buffer write
 			fwrite(quantizeBuffer + i, 2, 1, pipeout);
