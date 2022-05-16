@@ -5,12 +5,12 @@ Bariscan Kurtkaya
 
 # Input Signal
 
-<img src="./Data/inputSignal.png" alt="Input Signal" width="500" height="600">
+<img src="./Data/inputSignal.png" alt="Input Signal" width="500" height="300">
 
 # Decoded Output Signal
 
-<img src="./Data/decodedOutputSignal.png" alt="Decoded Signal" width="500" height="600">
+<img src="./Data/decodedOutputSignal.png" alt="Decoded Signal" width="500" height="300">
 
 # Linear Regression Output Signal
 
-<img src="./Data/linearRegressionOutputSignal.png" alt="Linear Regression Signal" width="500" height="600">
+<img src="./Data/linearRegressionOutputSignal.png" alt="Linear Regression Signal" width="500" height="300">
