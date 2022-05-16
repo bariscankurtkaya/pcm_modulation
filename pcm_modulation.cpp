@@ -27,6 +27,11 @@ void createCarrierSignal();
 void readAudioFile();
 void changeAudioFile();
 
+int16_t findMean(int16_t first, int16_t second, int16_t third, int16_t fourth, int16_t fifth);
+int16_t findBiggest(int16_t first, int16_t second, int16_t third, int16_t fourth, int16_t fifth);
+int16_t findSlope(int16_t first, int16_t fifth);
+
+
 void createCsvFile(int16_t* voiceArray);
 
 float pcmModulation(float number);
